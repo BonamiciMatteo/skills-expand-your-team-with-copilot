@@ -51,6 +51,13 @@ document.addEventListener("DOMContentLoaded", () => {
     weekend: { days: ["Saturday", "Sunday"] }, // Weekend days
   };
 
+  // HTML escape function to prevent XSS
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // Initialize filters from active elements
   function initializeFilters() {
     // Initialize day filter
@@ -491,11 +498,18 @@ document.addEventListener("DOMContentLoaded", () => {
       case 'copy':
         // Copy the share text to clipboard
         const textToCopy = `${shareText}\n${shareUrl}`;
-        navigator.clipboard.writeText(textToCopy).then(() => {
-          showMessage('Link copied to clipboard!', 'success');
-        }).catch(() => {
-          showMessage('Failed to copy link', 'error');
-        });
+        
+        // Check if clipboard API is available
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            showMessage('Link copied to clipboard!', 'success');
+          }).catch((err) => {
+            showMessage('Failed to copy link. Please copy manually.', 'error');
+          });
+        } else {
+          // Fallback for non-HTTPS or older browsers
+          showMessage('Clipboard not available. Please copy the link manually from the address bar.', 'info');
+        }
         break;
     }
   }
@@ -548,18 +562,19 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     // Create social sharing buttons
+    const escapedName = escapeHtml(name);
     const shareButtonsHtml = `
       <div class="share-buttons">
-        <button class="share-button facebook" data-activity="${name}" title="Share on Facebook">
+        <button class="share-button facebook" data-platform="facebook" data-activity="${escapedName}" title="Share on Facebook">
           <span class="share-icon">📘</span>
         </button>
-        <button class="share-button twitter" data-activity="${name}" title="Share on Twitter">
+        <button class="share-button twitter" data-platform="twitter" data-activity="${escapedName}" title="Share on Twitter">
           <span class="share-icon">🐦</span>
         </button>
-        <button class="share-button email" data-activity="${name}" title="Share via Email">
+        <button class="share-button email" data-platform="email" data-activity="${escapedName}" title="Share via Email">
           <span class="share-icon">✉️</span>
         </button>
-        <button class="share-button copy" data-activity="${name}" title="Copy Link">
+        <button class="share-button copy" data-platform="copy" data-activity="${escapedName}" title="Copy Link">
           <span class="share-icon">🔗</span>
         </button>
       </div>
@@ -628,7 +643,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const shareButtons = activityCard.querySelectorAll(".share-button");
     shareButtons.forEach((button) => {
       button.addEventListener("click", (e) => {
-        const platform = button.classList[1]; // Get the platform class (facebook, twitter, etc.)
+        const platform = button.dataset.platform; // Get the platform from data-platform attribute
         shareActivity(platform, name, details);
       });
     });
